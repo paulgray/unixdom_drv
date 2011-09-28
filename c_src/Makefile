@@ -11,6 +11,7 @@ all: $(UNIXDOM_DRV_SO)
 $(UNIXDOM_DRV_SO): $(SHLIB_OBJS)
 	$(LD_SHARED) -o $@ $^
 	# Symlink is only to help when using "jerl" script.
+	unlink ../ebin/$(UNIXDOM_DRV_SO)
 	-ln -s $(UNIXDOM_DRV_SO) ../ebin
 
 unixdom_drv.o: unixdom_drv.c

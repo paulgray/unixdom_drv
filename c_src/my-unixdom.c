@@ -1,4 +1,4 @@
-
+#include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -31,7 +31,7 @@ my_open(char *path, int flags)
     int			is_server = !!(flags & IS_SERVER);
     int			is_abstract = !!(flags & IS_ABSTRACT);
     int			is_nullterm = !!(flags & IS_NULLTERM);
-    
+
     /* Race condition exists, but is better than nothing */
     if (is_server && !is_abstract && stat(path, &sb) == 0) {
 	errno = EEXIST;

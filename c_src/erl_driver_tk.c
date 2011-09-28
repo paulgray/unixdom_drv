@@ -84,7 +84,7 @@ edtk_debug(char *f, ...)
     return res;
 }
 
-void 
+void
 edtk_debug_errcall(const char *errpfx, char *msg)
 {
     if (edtk_debug_flag)
@@ -101,7 +101,7 @@ edtk_free_data(void *data)
 /*
 ** Arg want_contiguous: if true, return error if the 'n' we're forwarding
 ** past are in a single contiguous buffer.
-** 
+**
 ** Return value:
 **      -1 = error
 **       0 = Success, there is no more data to be read
@@ -114,7 +114,8 @@ edtk_ev_forward_N(ErlIOVec *ev, int n, int *pp, int *qp, int want_contiguous)
     int	forward_pos = *pp + n;
 
     if ((*qp) >= ev->vsize) {
-	return -1;
+        edtk_debug("%s:%d qp: %d, size: %d\n", __FUNCTION__, __LINE__, (*qp), ev->vsize);
+        return -1;
     }
     if (forward_pos < ev->iov[*qp].iov_len) {
 	*pp += n;
@@ -134,6 +135,8 @@ edtk_ev_forward_N(ErlIOVec *ev, int n, int *pp, int *qp, int want_contiguous)
 	if ((*qp) < ev->vsize && ! want_contiguous) {
 	    return edtk_ev_forward_N(ev, n, pp, qp, want_contiguous);
 	} else {
+        edtk_debug("%s:%d want_contiguous: %d, qp: %d, vsize: %d\n",
+                   __FUNCTION__, __LINE__, want_contiguous, (*qp), ev->vsize);
 	    return -1;
 	}
     }

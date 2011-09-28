@@ -30,23 +30,15 @@
 -export([start/0, start_pipe/0]).
 -export([shutdown/1]).
 -export([debug/2]).
--export([
-         null/1, 
-         open/3, 
-         getfd/2, 
-         sendfd/3, 
-         receivefd/2, 
-         close/2, 
-         write/3, 
-         read/3
-        ]).
+-export([null/1, open/3, getfd/2, sendfd/3,
+         receivefd/2, close/2, write/3, read/3]).
 
 start() ->
     {ok, Path} = load_path(?DRV_NAME ++ ".so"),
     erl_ddll:start(),
     ok = erl_ddll:load_driver(Path, ?DRV_NAME),
     case open_port({spawn, ?DRV_NAME}, []) of
-        P when port(P) ->
+        P when is_port(P) ->
             {ok, P};
         Err ->
             Err
@@ -57,13 +49,13 @@ start_pipe() ->
     {ok, ShLib} = load_path("./unixdom_drv.so"),
     Cmd = PipeMain ++ "/pipe-main " ++ ShLib ++ "/unixdom_drv.so",
     case open_port({spawn, Cmd}, [exit_status, binary, use_stdio, {packet, 4}]) of
-        P when port(P) ->
+        P when is_port(P) ->
             {ok, P};
         Err ->
             Err
     end.
 
-shutdown(Port) when port(Port) ->
+shutdown(Port) when is_port(Port) ->
     catch erlang:port_close(Port),
     %% I was under the impression you'd always get a message sent to
     %% you in this case, so this receive is to keep your mailbox from
@@ -73,17 +65,15 @@ shutdown(Port) when port(Port) ->
         {'EXIT', Port, normal} -> {ok, normal};
         {'EXIT', Port, Err}    -> {error, Err}
     after 0                    -> {ok, normall} % XXX is 0 too small?
-        
     end.
 
-debug(Port, Flags) when port(Port), integer(Flags) ->
+debug(Port, Flags) when is_port(Port), is_integer(Flags) ->
     case catch erlang:port_command(Port, <<?S1_DEBUG, Flags:32>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX too drastic?
     end.
 
-null(Port
-        ) when port(Port) -> % TODO: Add additional constraints here
+null(Port) when is_port(Port) -> % TODO: Add additional constraints here
     IOList_____ = <<?S1_NULL>>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
@@ -91,105 +81,86 @@ null(Port
     end.
 
 open(Port,
-     Filename, 
-     Flags
-        ) when port(Port) -> % TODO: Add additional constraints here
+     Filename,
+     Flags) when is_port(Port) -> % TODO: Add additional constraints here
     {FilenameBinOrList, FilenameLen} = serialize_contiguously(Filename, 1),
     IOList_____ = [ <<?S1_OPEN,
-            FilenameLen:32/integer>>,           % I/O list length
-          FilenameBinOrList,
-          <<
-          Flags:32/integer
-        >> ],
+                      FilenameLen:32/integer>>,           % I/O list length
+                    FilenameBinOrList,
+                    <<
+                      Flags:32/integer
+                    >> ],
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-getfd(Port,
-     Fd
-        ) when port(Port) -> % TODO: Add additional constraints here
+getfd(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
     IOList_____ = <<?S1_GETFD,
-            FdIndex:32/integer
-        >>,
+                    FdIndex:32/integer
+                  >>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-sendfd(Port,
-     Unixdom_Fd, 
-     Fd_To_Be_Sent
-        ) when port(Port) -> % TODO: Add additional constraints here
+sendfd(Port, Unixdom_Fd, Fd_To_Be_Sent) when is_port(Port) -> % TODO: Add additional constraints here
     IOList_____ = <<?S1_SENDFD,
-          Unixdom_Fd:32/integer, 
-          Fd_To_Be_Sent:32/integer
-        >>,
+                    Unixdom_Fd:32/integer,
+                    Fd_To_Be_Sent:32/integer
+                  >>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-receivefd(Port,
-     Unixdom_Fd
-        ) when port(Port) -> % TODO: Add additional constraints here
+receivefd(Port, Unixdom_Fd) when is_port(Port) -> % TODO: Add additional constraints here
     IOList_____ = <<?S1_RECEIVEFD,
-          Unixdom_Fd:32/integer
-        >>,
+                    Unixdom_Fd:32/integer
+                  >>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-close(Port,
-     Fd
-        ) when port(Port) -> % TODO: Add additional constraints here
+close(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
     IOList_____ = <<?S1_CLOSE,
-            FdIndex:32/integer
-        >>,
+                    FdIndex:32/integer
+                  >>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-write(Port,
-     Fd, 
-     Ptr
-        ) when port(Port) -> % TODO: Add additional constraints here
+write(Port, Fd, Ptr) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
     {PtrBinOrList, PtrLen} = serialize_contiguously(Ptr, 0),
-    IOList_____ = [ <<?S1_WRITE,
-            FdIndex:32/integer, 
-            PtrLen:32/integer>>,                % I/O list length
-          PtrBinOrList,
-          <<
-        >> ],
+    IOList_____ = [<<?S1_WRITE,
+                     FdIndex:32/integer,
+                     PtrLen:32/integer>>,                % I/O list length
+                   PtrBinOrList,
+                   <<>>],
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-read(Port,
-     Fd, 
-     Size
-        ) when port(Port) -> % TODO: Add additional constraints here
+read(Port, Fd, Size) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
     IOList_____ = <<?S1_READ,
-            FdIndex:32/integer, 
-          Size:32/integer
-        >>,
+                    FdIndex:32/integer,
+                    Size:32/integer>>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-    
+
 %%%
 %%% Internal functions.
 %%%
-
 load_path(File) ->
     case lists:filter(fun(D) ->
                               case file:read_file_info(D ++ "/" ++ File) of
@@ -211,53 +182,33 @@ load_path(File) ->
 %%% forgetting the extra tuple wrapper.  So, if there's only one
 %%% thingie in the return tuple, strip it off: {ok, Thingie}
 %%%
-
-get_port_reply(Port) when port(Port) ->
+get_port_reply(Port) when is_port(Port) ->
     receive
         {Port, ok} = T -> proc_reply(T);
-        {Port, ok, {M}} = T -> proc_reply(T);
-        {Port, ok, M} = T -> proc_reply(T);
-        {Port, error, {Reason}} = T -> proc_reply(T);
-        {Port, error, Reason} = T -> proc_reply(T);
+        {Port, ok, {_M}} = T -> proc_reply(T);
+        {Port, ok, _M} = T -> proc_reply(T);
+        {Port, error, {_Reason}} = T -> proc_reply(T);
+        {Port, error, _Reason} = T -> proc_reply(T);
         %% Pipe driver messages
         {Port, {data, Bytes}} -> proc_reply(pipedrv_deser(Port, Bytes));
         {'EXIT', Port, Reason} -> throw({port_error, Reason});  % XXX too drastic?
         {Port, Reason} -> throw({port_error, Reason})   % XXX too drastic?
     end.
 
-%% This function exists to provide consistency of replies 
+%% This function exists to provide consistency of replies
 %% given by linked-in and pipe drivers.  The "receive" statement
 %% in get_port_reply/1 is specific because we want it to be
 %% very selective about what it will grab out of the mailbox.
-proc_reply({Port, ok}) when port(Port) ->
+proc_reply({Port, ok}) when is_port(Port) ->
     ok;
-proc_reply({Port, ok, {M}}) when port(Port) ->
+proc_reply({Port, ok, {M}}) when is_port(Port) ->
     {ok, M};
-proc_reply({Port, ok, M}) when port(Port) ->
+proc_reply({Port, ok, M}) when is_port(Port) ->
     {ok, M};
-proc_reply({Port, error, {Reason}}) when port(Port) ->
+proc_reply({Port, error, {Reason}}) when is_port(Port) ->
     {error, Reason};
-proc_reply({Port, error, Reason}) when port(Port) ->
+proc_reply({Port, error, Reason}) when is_port(Port) ->
     {error, Reason}.
-
-
-%%% io_list_len() is an extremely useful function.  BEAM has got this
-%%% implemented quite efficiently in C.  It would be *fabulous* to be able
-%%% to use it from Erlang via a BIF.
-
-io_list_len(B) when binary(B) -> {B, size(B)};
-io_list_len(L) when list(L) -> io_list_len(L, 0).
-io_list_len([H|T], N) ->
-    if
-        H >= 0, H =< 255 -> io_list_len(T, N+1);
-        list(H) -> io_list_len(T, io_list_len(H,N));
-        binary(H) -> io_list_len(T, size(H) + N);
-        true -> throw({error, partial_len, N})
-    end;
-io_list_len(H, N) when binary(H) -> 
-    size(H) + N;
-io_list_len([], N) -> 
-    N.
 
 %%% We need to make the binary thing we're passing in contiguous
 %%% because the C function we're calling is expecting a single
@@ -271,17 +222,15 @@ io_list_len([], N) ->
 %%% slower than doing it in C.
 
 %%% 2nd arg: if 1, NUL-terminate the IOList
-
-serialize_contiguously(B, 0) when binary(B) ->
+serialize_contiguously(B, 0) when is_binary(B) ->
     {B, size(B)};
-serialize_contiguously([B], 0) when binary(B) ->
+serialize_contiguously([B], 0) when is_binary(B) ->
     {B, size(B)};
 serialize_contiguously(IOList, 1) ->
     serialize_contiguously([IOList, 0], 0);
 serialize_contiguously(IOList, 0) ->
     B = list_to_binary(IOList),
     {B, size(B)}.
-
 
 %% pipedrv_deser/2 -- Deserialize the term that the pipe driver is
 %% is returning to Erlang.  The pipe driver doesn't know it's a pipe
@@ -290,20 +239,19 @@ serialize_contiguously(IOList, 0) ->
 %% it has a driver_output_term() function that serializes the term
 %% that the driver built.  With the help of a list-as-stack, we
 %% deserialize that term.
-
 pipedrv_deser(Port, B) ->
     pipedrv_deser(Port, B, []).
 
-pipedrv_deser(Port, <<>>, []) ->
+pipedrv_deser(_Port, <<>>, []) ->
     throw(icky_i_think);
-pipedrv_deser(Port, <<>>, [T]) ->
+pipedrv_deser(_Port, <<>>, [T]) ->
     T;
 pipedrv_deser(Port, <<?T_NIL:8, Rest/binary>>, Stack) ->
     pipedrv_deser(Port, Rest, [foo___foo_nil___|Stack]);
 pipedrv_deser(Port, <<?T_ATOM:8, Len:8, Rest/binary>>, Stack) ->
     <<A:Len/binary, Rest2/binary>> = Rest,
     pipedrv_deser(Port, Rest2, [list_to_atom(binary_to_list(A))|Stack]);
-pipedrv_deser(Port, <<?T_PORT:8, P:32/unsigned, Rest/binary>>, Stack) ->
+pipedrv_deser(Port, <<?T_PORT:8, _P:32/unsigned, Rest/binary>>, Stack) ->
     %% The pipe driver tried sending us a port, but it cannot know what
     %% port ID was assigned to this port, so we'll assume it is Port.
     pipedrv_deser(Port, Rest, [Port|Stack]);
@@ -321,7 +269,7 @@ pipedrv_deser(Port, <<?T_BINARY:8, Len:32/signed, Rest/binary>>, Stack) ->
 pipedrv_deser(Port, <<?T_STRING:8, Len:32/signed, Rest/binary>>, Stack) ->
     <<Bin:Len/binary, Rest2/binary>> = Rest,
     pipedrv_deser(Port, Rest2, [binary_to_list(Bin)|Stack]);
-pipedrv_deser(Port, X, Y) ->
+pipedrv_deser(_Port, X, Y) ->
     throw({bah, X, Y}).
 
 popN(N, Stack) ->
@@ -333,10 +281,3 @@ popN(N, [foo___foo_nil___|T], Acc) ->
     popN(N - 1, T, Acc);
 popN(N, [H|T], Acc) ->
     popN(N - 1, T, [H|Acc]).
-
-
-%%%
-%%% Begin code included via <custom_erl> tags
-%%%
-
-

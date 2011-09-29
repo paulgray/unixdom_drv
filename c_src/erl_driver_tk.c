@@ -69,20 +69,21 @@ edtk_alloced_ptr2ErlDrvBinary(void *p)
     }
 }
 
-int
-edtk_debug(char *f, ...)
+#ifdef DEBUG
+inline int edtk_debug(char *f, ...)
 {
     va_list	ap;
     int		res;
 
     va_start(ap, f);
-    if (edtk_debug_flag) {
 	res = vfprintf(DEBUGIO, f, ap);
 	fprintf(DEBUGIO, "\r\n");
-    }
     va_end(ap);
     return res;
 }
+#else
+inline int edtk_debug(char *f, ...) {};
+#endif /* DEBUG */
 
 void
 edtk_debug_errcall(const char *errpfx, char *msg)

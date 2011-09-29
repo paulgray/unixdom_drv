@@ -149,7 +149,7 @@ void *sys_alloc(size_t);
 void *sys_realloc(void *, size_t);
 void sys_free(void *);
 
-int edtk_debug(char *f, ...);
+inline int edtk_debug(char *f, ...);
 void edtk_debug_errcall(const char *, char *);
 void edtk_free_data(void *data);
 

@@ -74,57 +74,48 @@ debug(Port, Flags) when is_port(Port), is_integer(Flags) ->
     end.
 
 null(Port) when is_port(Port) -> % TODO: Add additional constraints here
-    IOList_____ = <<?S1_NULL>>,
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, <<?S1_NULL>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
 open(Port, Filename, Flags) when is_port(Port) -> % TODO: Add additional constraints here
     {FilenameBinOrList, FilenameLen} = serialize_contiguously(Filename, 1),
-    IOList_____ = [<<?S1_OPEN,
-                     FilenameLen:32/integer>>,     %% I/O list length
-                   FilenameBinOrList,
-                   <<Flags:32/integer>>],
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, [?S1_OPEN,
+                                          <<FilenameLen:32/integer>>,     %% I/O list length
+                                          FilenameBinOrList,
+                                          <<Flags:32/integer>>]) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
 getfd(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
-    IOList_____ = <<?S1_GETFD,
-                    FdIndex:32/integer>>,
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, <<?S1_GETFD,
+                                           FdIndex:32/integer>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
 sendfd(Port, Unixdom_Fd, Fd_To_Be_Sent) when is_port(Port) -> % TODO: Add additional constraints here
-    IOList_____ = <<?S1_SENDFD,
-                    Unixdom_Fd:32/integer,
-                    Fd_To_Be_Sent:32/integer
-                  >>,
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, <<?S1_SENDFD,
+                                           Unixdom_Fd:32/integer,
+                                           Fd_To_Be_Sent:32/integer>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
 receivefd(Port, Unixdom_Fd) when is_port(Port) -> % TODO: Add additional constraints here
-    IOList_____ = <<?S1_RECEIVEFD,
-                    Unixdom_Fd:32/integer
-                  >>,
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, <<?S1_RECEIVEFD,
+                                           Unixdom_Fd:32/integer>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
 close(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
-    IOList_____ = <<?S1_CLOSE,
-                    FdIndex:32/integer
-                  >>,
-    case catch erlang:port_command(Port, IOList_____) of
+    case catch erlang:port_command(Port, <<?S1_CLOSE,
+                                           FdIndex:32/integer>>) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.

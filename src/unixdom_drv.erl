@@ -31,7 +31,7 @@
 -export([shutdown/1]).
 -export([debug/2]).
 -export([null/1, open/3, getfd/2, sendfd/3,
-         receivefd/2, close/2, write/3, read/3]).
+         receivefd/2, close/2]).
 
 start() ->
     {ok, Path} = load_path(?DRV_NAME ++ ".so"),
@@ -64,7 +64,7 @@ shutdown(Port) when is_port(Port) ->
     receive
         {'EXIT', Port, normal} -> {ok, normal};
         {'EXIT', Port, Err}    -> {error, Err}
-    after 0                    -> {ok, normall} % XXX is 0 too small?
+    after 0                    -> {ok, normal} % XXX is 0 too small?
     end.
 
 debug(Port, Flags) when is_port(Port), is_integer(Flags) ->
@@ -80,16 +80,12 @@ null(Port) when is_port(Port) -> % TODO: Add additional constraints here
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
 
-open(Port,
-     Filename,
-     Flags) when is_port(Port) -> % TODO: Add additional constraints here
+open(Port, Filename, Flags) when is_port(Port) -> % TODO: Add additional constraints here
     {FilenameBinOrList, FilenameLen} = serialize_contiguously(Filename, 1),
-    IOList_____ = [ <<?S1_OPEN,
-                      FilenameLen:32/integer>>,           % I/O list length
-                    FilenameBinOrList,
-                    <<
-                      Flags:32/integer
-                    >> ],
+    IOList_____ = [<<?S1_OPEN,
+                     FilenameLen:32/integer>>,     %% I/O list length
+                   FilenameBinOrList,
+                   <<Flags:32/integer>>],
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
@@ -98,8 +94,7 @@ open(Port,
 getfd(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
     {valmap_fd, FdIndex} = Fd,
     IOList_____ = <<?S1_GETFD,
-                    FdIndex:32/integer
-                  >>,
+                    FdIndex:32/integer>>,
     case catch erlang:port_command(Port, IOList_____) of
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
@@ -133,30 +128,6 @@ close(Port, Fd) when is_port(Port) -> % TODO: Add additional constraints here
         true -> get_port_reply(Port);
         Err  -> throw(Err)              % XXX Is this too drastic?
     end.
-
-write(Port, Fd, Ptr) when is_port(Port) -> % TODO: Add additional constraints here
-    {valmap_fd, FdIndex} = Fd,
-    {PtrBinOrList, PtrLen} = serialize_contiguously(Ptr, 0),
-    IOList_____ = [<<?S1_WRITE,
-                     FdIndex:32/integer,
-                     PtrLen:32/integer>>,                % I/O list length
-                   PtrBinOrList,
-                   <<>>],
-    case catch erlang:port_command(Port, IOList_____) of
-        true -> get_port_reply(Port);
-        Err  -> throw(Err)              % XXX Is this too drastic?
-    end.
-
-read(Port, Fd, Size) when is_port(Port) -> % TODO: Add additional constraints here
-    {valmap_fd, FdIndex} = Fd,
-    IOList_____ = <<?S1_READ,
-                    FdIndex:32/integer,
-                    Size:32/integer>>,
-    case catch erlang:port_command(Port, IOList_____) of
-        true -> get_port_reply(Port);
-        Err  -> throw(Err)              % XXX Is this too drastic?
-    end.
-
 
 %%%
 %%% Internal functions.

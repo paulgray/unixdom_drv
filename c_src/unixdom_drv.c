@@ -104,8 +104,6 @@ static void invoke_s1_close(void *data);
 static void invoke_s1_write(void *data);
 static void invoke_s1_read(void *data);
 
-static int reply_xtra_1_ptr_ssize_t(descriptor_t *, callstate_t *);
-
 static int find_unused_fd_index(descriptor_t *, unsigned long *);
 static void cleanup_valmap_fd_index(descriptor_t *, int, int);
 static void cleanup_valmap_fd_all(descriptor_t *, int);
@@ -116,10 +114,6 @@ static int reply_ok_binary(descriptor_t *desc, char *p, int, int);
 static int reply_ok_valmap(descriptor_t *, ErlDrvTermData, unsigned long);
 static int reply_error(descriptor_t *desc, int errnum);
 static int reply_error_atom(descriptor_t *, ErlDrvTermData);
-#if     0
-static int reply_tag_ok(descriptor_t *desc, unsigned short tag);
-static int reply_tag_error(descriptor_t *desc, unsigned short tag, int errnum);
-#endif  /* 0 */
 
 static ErlDrvEntry s1_driver_entry = {
     s1_init,                    /* init */
@@ -271,8 +265,7 @@ s1_control(ErlDrvData drv_data, unsigned int command,
     return retlen;
 }
 
-static void
-s1_outputv(ErlDrvData drv_data, ErlIOVec *ev)
+static void s1_outputv(ErlDrvData drv_data, ErlIOVec *ev)
 {
     descriptor_t        *desc = (descriptor_t *) drv_data;
     unsigned char       cmd;
@@ -327,11 +320,7 @@ s1_outputv(ErlDrvData drv_data, ErlIOVec *ev)
     case S1_GETFD:
         c->invoke = invoke_s1_getfd;
         EV_GET_UINT32(ev, &index, &p, &q);
-        if (index == -1 && 0 == 1) {
-            edtk_debug("%s: valmap fd index %d = default value 0x%lx", __FUNCTION__, index, -1);
-            c->i.fd = -1;
-            c->i.__valmap_fd_index = -1;
-        } else if (desc->valmap_fd[index] == -1) {
+        if (desc->valmap_fd[index] == -1) {
             goto error;
         } else {
             edtk_debug("%s: valmap fd index %d = 0x%lx", __FUNCTION__, index, desc->valmap_fd[index]);
@@ -363,32 +352,8 @@ s1_outputv(ErlDrvData drv_data, ErlIOVec *ev)
             c->i.__valmap_fd_index = index;
         }
         break;
-    case S1_WRITE:
-        c->invoke = invoke_s1_write;
-        EV_GET_UINT32(ev, &c->i.unixdom_fd, &p, &q);
-        EV_GET_UINT32(ev, &binlen, &p, &q);
-        c->i.__stash[0] = binlen;
-        c->i.ptr = (char *) EV_GETPOS(ev, p, q);
-        if (edtk_ev_forward_N(ev, binlen, &p, &q, 1) < 0) {
-            goto error;
-        }
-        break;
-    case S1_READ:
-        c->invoke = invoke_s1_read;
-        EV_GET_UINT32(ev, &c->i.unixdom_fd, &p, &q);
-        EV_GET_UINT32(ev, &c->i.size, &p, &q);
-
-        edtk_debug("XXX c->i.size = %d\r\n", c->i.size);
-        if ((c->i.ptr = (char *) edtk_driver_alloc_wrapper(c->i.size)) == NULL) {
-            goto error;
-        }
-
-        break;
-     default:
-        edtk_debug("%s: invalid command %d", __FUNCTION__, cmd);
-        goto error;
-        break;
     }
+
     if (c != NULL) {
         if (do_async_call) {
             driver_async(desc->port, c->key, c->invoke, c, c->free);
@@ -412,8 +377,7 @@ s1_outputv(ErlDrvData drv_data, ErlIOVec *ev)
     reply_error_atom(desc, am_badarg);
 }
 
-static void
-s1_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
+static void s1_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
 {
     descriptor_t        *desc = (descriptor_t *) drv_data;
     callstate_t *c = (callstate_t *) thread_data;
@@ -421,11 +385,6 @@ s1_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
     char                *p = NULL;
     unsigned long       index = 0;
 
-    p = p;
-    bytes = bytes;
-    offset = offset;
-    i = i;
-    index = index;
     edtk_debug("%s: cmd = %d", __FUNCTION__, c->cmd);
     if (c == NULL) {
         edtk_debug("%s: c == NULL", __FUNCTION__);
@@ -472,12 +431,6 @@ s1_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
         cleanup_valmap_fd_index(desc, c->i.__valmap_fd_index, 0);
         reply_ok_num(desc, c->o.ret_int);
         break;
-    case S1_WRITE:
-        reply_ok_num(desc, c->o.ret_ssize_t);
-        break;
-    case S1_READ:
-        reply_xtra_1_ptr_ssize_t(desc, c);
-        break;
     default:
         edtk_debug("%s: bogus command, should never happen", __FUNCTION__);
         break;
@@ -490,10 +443,8 @@ invoke_s1_null(void *data)
 {
     callstate_t *c = (callstate_t *) data;
 
-    c = c;
     edtk_debug("%s: threadid = %lx", __FUNCTION__, pthread_self());
-    null(
-                        );
+    null();
     edtk_debug("%s: threadid = %lx done", __FUNCTION__, pthread_self());
 }
 
@@ -502,7 +453,6 @@ invoke_s1_open(void *data)
 {
     callstate_t *c = (callstate_t *) data;
 
-    c = c;
     edtk_debug("%s: threadid = %lx", __FUNCTION__, pthread_self());
     c->o.ret_int = my_open(c->i.filename,
                            c->i.flags);
@@ -594,39 +544,7 @@ invoke_s1_close(void *data)
     edtk_debug("%s: threadid = %lx done", __FUNCTION__, pthread_self());
 }
 
-static void
-invoke_s1_write(void *data)
-{
-    callstate_t *c = (callstate_t *) data;
-
-    c = c;
-    edtk_debug("%s: threadid = %lx", __FUNCTION__, pthread_self());
-    c->o.ret_ssize_t = write(
-                          c->i.fd,
-                          c->i.ptr,
-                          c->i.__stash[0]
-                        );
-    edtk_debug("%s: threadid = %lx done", __FUNCTION__, pthread_self());
-}
-
-static void
-invoke_s1_read(void *data)
-{
-    callstate_t *c = (callstate_t *) data;
-
-    c = c;
-    edtk_debug("%s: threadid = %lx", __FUNCTION__, pthread_self());
-    c->o.ret_ssize_t = read(
-                          c->i.fd,
-                          c->i.ptr,
-                          c->i.size
-                        );
-    edtk_debug("%s: threadid = %lx done", __FUNCTION__, pthread_self());
-}
-
-
-static int
-reply_ok(descriptor_t *desc)
+static int reply_ok(descriptor_t *desc)
 {
     ErlDrvTermData      msg[24];
     int                 i = 0;
@@ -641,8 +559,7 @@ reply_ok(descriptor_t *desc)
     return res;
 }
 
-static int
-reply_ok_num(descriptor_t *desc, unsigned long num)
+static int reply_ok_num(descriptor_t *desc, unsigned long num)
 {
     ErlDrvTermData      msg[24];
     int                 i = 0;
@@ -658,8 +575,7 @@ reply_ok_num(descriptor_t *desc, unsigned long num)
     return res;
 }
 
-static int
-reply_ok_binary(descriptor_t *desc, char *ptr, int beg_offset, int length)
+static int reply_ok_binary(descriptor_t *desc, char *ptr, int beg_offset, int length)
 {
     ErlDrvTermData      msg[24];
     int                 i = 0;
@@ -686,8 +602,7 @@ reply_ok_binary(descriptor_t *desc, char *ptr, int beg_offset, int length)
     return res;
 }
 
-static int
-reply_ok_valmap(descriptor_t *desc, ErlDrvTermData valmap_atom,
+static int reply_ok_valmap(descriptor_t *desc, ErlDrvTermData valmap_atom,
                 unsigned long valmap_index)
 {
     ErlDrvTermData      msg[15];
@@ -706,8 +621,7 @@ reply_ok_valmap(descriptor_t *desc, ErlDrvTermData valmap_atom,
     return res;
 }
 
-static int
-reply_error(descriptor_t *desc, int errnum)
+static int reply_error(descriptor_t *desc, int errnum)
 {
     ErlDrvTermData      msg[24];
     int                 i = 0;
@@ -724,8 +638,7 @@ reply_error(descriptor_t *desc, int errnum)
     return res;
 }
 
-static int
-reply_error_atom(descriptor_t *desc, ErlDrvTermData atom)
+static int reply_error_atom(descriptor_t *desc, ErlDrvTermData atom)
 {
     ErlDrvTermData      msg[24];
     int                 i = 0;
@@ -741,96 +654,7 @@ reply_error_atom(descriptor_t *desc, ErlDrvTermData atom)
     return res;
 }
 
-#if     0       /* XXX These are unused right now */
-static int
-reply_tag_ok(descriptor_t *desc, unsigned short tag)
-{
-    ErlDrvTermData      msg[24];
-    int                 i = 0;
-    int                 res;
-
-    i = LOAD_PORT(msg, i, driver_mk_port(desc->port));
-    i = LOAD_INT(msg, i, tag);
-    i = LOAD_ATOM(msg, i, am_ok);
-    i = LOAD_TUPLE(msg, i, 3);
-    edtk_debug("reply_ok: i = %d", i);
-    res = driver_output_term(desc->port, msg, i);
-    edtk_debug("reply_ok: res = %d", res);
-    return res;
-}
-
-static int
-reply_tag_error(descriptor_t *desc, unsigned short tag, int errnum)
-{
-    ErlDrvTermData      msg[24];
-    int                 i = 0;
-    int                 res;
-
-    edtk_debug("reply_error: errnum = %d", errnum);
-    i = LOAD_PORT(msg, i, driver_mk_port(desc->port));
-    i = LOAD_INT(msg, i, tag);
-    i = LOAD_INT(msg, i, errnum);
-    i = LOAD_ATOM(msg, i, am_error);
-    i = LOAD_TUPLE(msg, i, 4);
-    edtk_debug("reply_error: i = %d", i);
-    res = driver_output_term(desc->port, msg, i);
-    edtk_debug("reply_error: res = %d", res);
-    return res;
-}
-#endif  /* 0 */
-
-
-static int
-reply_xtra_1_ptr_ssize_t(descriptor_t *desc, callstate_t *c)
-{
-    ErlDrvTermData      msg[MAX_RETURN_TERMS];
-    int                 msgcount = 0;
-    int                 res;
-    int                 members = 0;
-    char                *tmp = NULL;
-    int                 i;
-    ErlDrvBinary        *tmpbin = NULL;
-
-    tmp = tmp; tmpbin = tmpbin;
-    desc->num_tofree = 0;
-
-    msgcount = LOAD_PORT(msg, msgcount, driver_mk_port(desc->port));
-    members = 2;        /* members will be 2 very shortly: Port & ok|error */
-    if (c->o.__expect) {
-        msgcount = LOAD_ATOM(msg, msgcount, am_ok);
-        {
-            int members = 0;
-             tmpbin = edtk_alloced_ptr2ErlDrvBinary(c->i.ptr);
-             msgcount = LOAD_BINARY(msg, msgcount, tmpbin, 0, c->o.ret_ssize_t);
-             /* driver_output_term() incrs refc, and we're done, so decr refc LATER */
-             desc->tofree[desc->num_tofree++] = tmpbin;
-             members++;
-            msgcount = LOAD_TUPLE(msg, msgcount, members);
-        }
-    } else {
-        msgcount = LOAD_ATOM(msg, msgcount, am_error);
-        {
-            int members = 0;
-            msgcount = LOAD_TUPLE(msg, msgcount, members);
-        }
-    }
-    msgcount = LOAD_TUPLE(msg, msgcount, 3);
-    edtk_debug("reply_xtra_1_ptr_ssize_t: i = %d", msgcount);
-    res = driver_output_term(desc->port, msg, msgcount);
-    edtk_debug("reply_xtra_1_ptr_ssize_t: res = %d", res);
-    if (res < 0) {
-        fprintf(stderr, "\r\n\r\nreply_xtra_1_ptr_ssize_t: driver_output_term() failed!  This should never happen!\r\n\r\n");
-    }
-
-    for (i = 0; i < desc->num_tofree; i++) {
-        driver_free_binary(desc->tofree[i]);
-    }
-    return res;
-}
-
-
-static int
-find_unused_fd_index(descriptor_t *desc, unsigned long *index_p)
+static int find_unused_fd_index(descriptor_t *desc, unsigned long *index_p)
 {
     int i;
 
@@ -843,8 +667,7 @@ find_unused_fd_index(descriptor_t *desc, unsigned long *index_p)
     return -1;
 }
 
-static void
-cleanup_valmap_fd_index(descriptor_t *desc, int i, int do_cleanup_func)
+static void cleanup_valmap_fd_index(descriptor_t *desc, int i, int do_cleanup_func)
 {
     edtk_debug("%s: i = %d, do_cleanup_func = %d", __FUNCTION__, i, do_cleanup_func);
     if (do_cleanup_func) {
@@ -854,8 +677,7 @@ cleanup_valmap_fd_index(descriptor_t *desc, int i, int do_cleanup_func)
     desc->valmap_fd[i] = -1;
 }
 
-static void
-cleanup_valmap_fd_all(descriptor_t *desc, int do_cleanup_func)
+static void cleanup_valmap_fd_all(descriptor_t *desc, int do_cleanup_func)
 {
     int i;
 
@@ -864,5 +686,3 @@ cleanup_valmap_fd_all(descriptor_t *desc, int do_cleanup_func)
         cleanup_valmap_fd_index(desc, i, do_cleanup_func);
     }
 }
-
-
